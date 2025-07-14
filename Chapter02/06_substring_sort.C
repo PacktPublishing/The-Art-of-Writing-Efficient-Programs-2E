@@ -1,7 +1,4 @@
-// Substring sort
-// Build as follows:
-// $CXX 01_substring_sort.C 01_substring_sort_compare.C -g -O3 -mavx2 -I. -o 01_substring_sort
-//   (On ARM or recent X86 CPUs, use different architecture, for example, -march=native)
+// 01 with comparison function inlined
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -20,7 +17,15 @@ using std::minstd_rand;
 using std::unique_ptr;
 using std::vector;
 
-bool compare(const char* s1, const char* s2, unsigned int l);
+// Comparison function for substring sort 01_substring_sort.C.
+bool compare(const char* s1, const char* s2, unsigned int l) {
+    if (s1 == s2) return false;
+    for (unsigned int i = 0; i < l; ++i) {
+        if (s1[i] != s2[i]) return s1[i] > s2[i];
+    }
+    return false;
+}
+
 
 int main() {
 #include "00_substring_sort_prep.C"
