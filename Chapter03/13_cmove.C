@@ -3,7 +3,7 @@
 
 #include "benchmark/benchmark.h"
 
-void BM_add(benchmark::State& state) {
+void BM_cmove(benchmark::State& state) {
     srand(1);
     const unsigned int N = state.range(0);
     std::vector<unsigned long> v1(N), v2(N);
@@ -16,7 +16,7 @@ void BM_add(benchmark::State& state) {
     for (auto _ : state) {
         unsigned long a1 = 0;
         for (size_t i = 0; i < N; ++i) {
-            a1 += p1[i] + p2[i];
+            a1 += (p1[i] > p2[i]) ? (p1[i] + p2[i]) : (p1[i] * p2[i]);
         }
         benchmark::DoNotOptimize(a1);
         benchmark::ClobberMemory();
@@ -27,7 +27,7 @@ void BM_add(benchmark::State& state) {
 #define ARGS \
     ->Arg(1<<22)
 
-BENCHMARK(BM_add) ARGS;
+BENCHMARK(BM_cmove) ARGS;
 
 BENCHMARK_MAIN();
 
