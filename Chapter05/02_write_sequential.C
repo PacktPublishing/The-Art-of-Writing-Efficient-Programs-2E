@@ -25,22 +25,20 @@
 #define REPEAT(x) REPEAT32(x)
 
 template <class Word>
-void BM_read_seq(benchmark::State& state) {
+void BM_write_seq(benchmark::State& state) {
     void* memory;
     const size_t size = state.range(0);
     if (size/sizeof(Word) < 32) abort();
     if (::posix_memalign(&memory, 512, size) != 0) abort();
-    ::memset(memory, 0xfe, size);
     void* const end = static_cast<char*>(memory) + size;
     volatile Word* const p0 = static_cast<Word*>(memory);
     Word* const p1 = static_cast<Word*>(end);
+    Word fill; ::memset(&fill, 0xab, sizeof(fill));
 
     for (auto _ : state) {
-        Word sink {};
         for (volatile Word* p = p0; p != p1; ) {
-            REPEAT32(sink += *p++;)
+            REPEAT(*p++ = fill;)
         }
-        benchmark::DoNotOptimize(sink);
         benchmark::ClobberMemory();
     }
 
@@ -60,16 +58,16 @@ static const long numcpu = sysconf(_SC_NPROCESSORS_CONF);
     ->RangeMultiplier(2)->Range(1<<10, 1<<30)
 
 #ifdef uint256
-BENCHMARK_TEMPLATE1(BM_read_seq, uint256) ARGS;
+BENCHMARK_TEMPLATE1(BM_write_seq, uint256) ARGS;
 #else
 #ifdef uint128
-BENCHMARK_TEMPLATE1(BM_read_seq, uint128) ARGS;
+BENCHMARK_TEMPLATE1(BM_write_seq, uint128) ARGS;
 #else
-BENCHMARK_TEMPLATE1(BM_read_seq, unsigned long) ARGS;
+BENCHMARK_TEMPLATE1(BM_write_seq, unsigned long) ARGS;
 #endif // uint128
 #endif // uint256
-//BENCHMARK_TEMPLATE1(BM_read_seq, unsigned int) ARGS;
-//BENCHMARK_TEMPLATE1(BM_read_seq, unsigned short) ARGS;
-//BENCHMARK_TEMPLATE1(BM_read_seq, unsigned char) ARGS;
+//BENCHMARK_TEMPLATE1(BM_write_seq, unsigned int) ARGS;
+//BENCHMARK_TEMPLATE1(BM_write_seq, unsigned short) ARGS;
+//BENCHMARK_TEMPLATE1(BM_write_seq, unsigned char) ARGS;
 
 BENCHMARK_MAIN();
