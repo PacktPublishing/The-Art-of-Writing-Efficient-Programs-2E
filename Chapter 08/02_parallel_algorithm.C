@@ -6,7 +6,7 @@
 
 #include "benchmark/benchmark.h"
 
-auto work = [](double& x){ x = sin(x) + cos(x)*exp(-x); };
+auto work = [](double& x){ ++x; };
 
 void BM_foreach(benchmark::State& state) {
     const size_t N = state.range(0);
@@ -65,10 +65,10 @@ void BM_foreach_unseq(benchmark::State& state) {
     ->Arg(1UL<<24) \
     ->UseRealTime()
 
-BENCHMARK(BM_foreach) ARG;
+//BENCHMARK(BM_foreach) ARG;
 BENCHMARK(BM_foreach_seq) ARG;
 BENCHMARK(BM_foreach_par) ARG;
-BENCHMARK(BM_foreach_par_unseq) ARG;
-BENCHMARK(BM_foreach_unseq) ARG;
+//BENCHMARK(BM_foreach_par_unseq) ARG;
+//BENCHMARK(BM_foreach_unseq) ARG;
 
 BENCHMARK_MAIN();
