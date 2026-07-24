@@ -19,29 +19,29 @@ CXXFLAGS_TEST_TSAN = $(COMMON_FLAGS) -O0 -Wno-misleading-indentation -fsanitize=
 LIBS_TEST = $(GTEST_DIR)/lib/libgtest.a $(GTEST_DIR)/lib/libgtest_main.a $(COMMON_LIBS)
 
 # Target definitions
-TARGET_BM = lock_free_list_bm
-TARGET_TEST_ASAN = lock_free_list_test_asan
-TARGET_TEST_TSAN = lock_free_list_test_tsan
+TARGET_BM = concurrent_hash_set_bm
+TARGET_TEST_ASAN = concurrent_hash_set_test_asan
+TARGET_TEST_TSAN = concurrent_hash_set_test_tsan
 
 # Headers every target depends on; editing them must trigger a rebuild.
 # Recipes use $< (the source file), not $^, so the headers are prerequisites
 # only and are not passed to the compiler command line.
-HEADERS = lock_free_list.h intr_shared_ptr.h lock_free_shared_ptr/atomic_shared_ptr.hpp
+HEADERS = concurrent_deque.h concurrent_hash_set.h spinlock.h
 
 .PHONY: all clean run_tests
 
 all: $(TARGET_BM) $(TARGET_TEST_ASAN) $(TARGET_TEST_TSAN)
 
 # Build benchmark
-$(TARGET_BM): lock_free_list_bm.C $(HEADERS)
+$(TARGET_BM): concurrent_hash_set_bm.C $(HEADERS)
 	$(CXX) $(CXXFLAGS_BM) $< $(LIBS_BM) -o $@
 
 # Build ASan test
-$(TARGET_TEST_ASAN): lock_free_list_test.C $(HEADERS)
+$(TARGET_TEST_ASAN): concurrent_hash_set_test.C $(HEADERS)
 	$(CXX) $(CXXFLAGS_TEST_ASAN) $< $(LIBS_TEST) -o $@
 
 # Build TSan test
-$(TARGET_TEST_TSAN): lock_free_list_test.C $(HEADERS)
+$(TARGET_TEST_TSAN): concurrent_hash_set_test.C $(HEADERS)
 	$(CXX) $(CXXFLAGS_TEST_TSAN) $< $(LIBS_TEST) -o $@
 
 # Run tests
