@@ -37,6 +37,26 @@
 #include <memory>
 #include "spinlock.h"
 
+// ---------------------------------------------------------------------------
+// Cache-line padding toggle (for false-sharing A/B measurement).
+//
+// By default the hot members (`directory_`, `size_`, `spinlock_`) are each
+// aligned to their own 64-byte cache line to avoid false sharing between the
+// reader-hammered `size_` and the write-path members -- see the member
+// declarations at the bottom of the class for the full mechanism.
+//
+// Define CONCURRENT_DEQUE_UNPADDED at compile time (-DCONCURRENT_DEQUE_UNPADDED)
+// to build the PACKED layout instead, in which all members share one line. The
+// two builds differ ONLY in member alignment; every code path is identical, so
+// the same benchmark binary source can be compiled both ways and compared (see
+// BM_WriterVsPollingReaders in concurrent_deque_bm.C). CDQ_HOT_ALIGN is #undef'd
+// at the end of this header.
+#if defined(CONCURRENT_DEQUE_UNPADDED)
+#  define CDQ_HOT_ALIGN
+#else
+#  define CDQ_HOT_ALIGN alignas(64)
+#endif
+
 /**
  * @brief A thread-safe, append-only segmented array (deque-like container)
  * optimized for wait-free reads and locked writes.
@@ -280,14 +300,25 @@ public:
 
     bool empty() const { return size() == 0; }
     
+    // Number of elements the directory can currently address without growing,
+    // i.e. directory_capacity_ blocks * BlockSize. This is addressable capacity,
+    // not allocated storage: blocks are allocated lazily, so most of these slots
+    // may not be backed by memory yet. The lock is required because
+    // directory_capacity_ is a plain (non-atomic) member that writers mutate
+    // under spinlock_; an unlocked read would race with reallocate_directory().
     size_t capacity() const {
         std::lock_guard lock(spinlock_);
         return directory_capacity_ << BlockShift;
     }
 
+    // front()/back() carry a std::vector-style precondition: the deque must be
+    // non-empty. back() forms the index as size() - 1, so on an empty deque the
+    // unsigned subtraction wraps to SIZE_MAX and operator[] reads out of bounds --
+    // undefined behavior, by contract, exactly as std::vector::back(). Use at()
+    // for a checked access.
     T& front() { return (*this)[0]; }
     const T& front() const { return (*this)[0]; }
-    
+
     T& back() { return (*this)[size() - 1]; }
     const T& back() const { return (*this)[size() - 1]; }
 
@@ -409,9 +440,16 @@ public:
      * If `new_size` is less than or equal to the current size, the call is a safe no-op.
      * 
      * NOTE: We acquire the current size to ensure that even if this call is a no-op,
-     * the thread executing `resize()` establishes a happens-before relationship with 
+     * the thread executing `resize()` establishes a happens-before relationship with
      * previous writers. This allows the caller to safely assume that elements up to
      * `new_size` are fully visible without requiring an explicit `size()` check.
+     *
+     * NOTE: Exception safety is deliberately out of scope: if T's constructor threw
+     * mid-loop, elements already constructed above the old size would not be recorded
+     * in `size_` and would never be destroyed. Thread-safety and exception-safety
+     * pull the API in different directions, and a design that has both would obscure
+     * the concurrency this example teaches; T is required not to throw on
+     * value-initialization (trivially true for the scalar types used here).
      */
     void resize(size_t new_size) {
         // First check (lock-free) with acquire semantics.
@@ -447,14 +485,16 @@ public:
     /**
      * @brief Appends a copy of `value` to the end of the container.
      * Forwards to emplace_back(), which implements the full write protocol.
+     * @return The index at which the new element was inserted.
      */
-    void push_back(const T& value) { emplace_back(value); }
+    size_t push_back(const T& value) { return emplace_back(value); }
 
     /**
      * @brief Appends `value` to the end of the container by move.
      * Forwards to emplace_back(), which implements the full write protocol.
+     * @return The index at which the new element was inserted.
      */
-    void push_back(T&& value) { emplace_back(std::move(value)); }
+    size_t push_back(T&& value) { return emplace_back(std::move(value)); }
 
     /**
      * @brief Appends a new element constructed in-place to the end of the container.
@@ -470,9 +510,10 @@ public:
      * store also carries the entry to any reader that acquires the new size. The same
      * argument covers the block-pointer store in resize().
      *
+     * @return The index at which the new element was inserted.
      */
     template<typename... Args>
-    void emplace_back(Args&&... args) {
+    size_t emplace_back(Args&&... args) {
         std::lock_guard lock(spinlock_);
         size_t current_size = size_.load(std::memory_order_relaxed);
         size_t block_idx = current_size >> BlockShift;
@@ -493,6 +534,7 @@ public:
         
         // Absolute last instruction: release store to make the new element visible.
         size_.store(current_size + 1, std::memory_order_release);
+        return current_size;
     } // emplace_back()
 
 private:
@@ -544,11 +586,68 @@ private:
         return reinterpret_cast<T*>(b->data);
     }
 
-    std::atomic<T**> directory_ {};            // Atomic pointer to current array of block pointers
-    size_t directory_capacity_ {};             // Current capacity (in blocks) of directory_
-    std::vector<T**> retired_directories_ {};  // Old directories preserved for wait-free reader safety
-    std::atomic<size_t> size_ {};              // Global element count
-    mutable SpinLock spinlock_;                // Serializes all write operations
+    // Cache-line layout of the hot members. CDQ_HOT_ALIGN is alignas(64) in the
+    // default build and empty in the CONCURRENT_DEQUE_UNPADDED build (see the
+    // toggle near the top of this header); do NOT hard-code the alignment here.
+    //
+    // The reader-hammered `size_` is acquire-loaded by every reader on the
+    // wait-free path, while the write path mutates `spinlock_` (a TTAS exchange
+    // to lock + a release store to unlock, per write) and `directory_capacity_`.
+    // Packed onto one line (the CONCURRENT_DEQUE_UNPADDED build) those writes
+    // false-share with the readers' `size_` loads: each spinlock op and capacity
+    // update invalidates the readers' copy of the line, forcing a coherence miss
+    // on their next `size()`. CDQ_HOT_ALIGN puts `directory_`, `size_`, and
+    // `spinlock_` each on their own 64-byte line so only a genuine `size_` store
+    // -- the datum readers actually want -- invalidates the readers' line.
+    //
+    // The general rule for spinlock placement: put the lock on the SAME line as
+    // the data it guards when contention is low -- acquiring the lock then also
+    // brings ownership of the data line, so one coherence transaction covers the
+    // lock AND the guarded writes. Put it on a DIFFERENT line when contention is
+    // high -- someone is then guaranteed to degrade the holder's line to Shared
+    // when they probe the lock and fail, so every write inside the critical
+    // section pays a fresh ownership request. Here the "contenders" are not
+    // failed lock acquirers but readers polling `size_`; the coherence effect is
+    // identical, and the crossover is governed by how often anyone else touches
+    // the line during one write.
+    //
+    // Measured (BM_WriterVsPollingReaders in concurrent_deque_bm.C, built both
+    // ways; 1 writer vs N size()-polling readers):
+    //   - The effect requires a writer running CONCURRENTLY with polling readers
+    //     (this container's single-producer / many-consumer design point).
+    //     Read-only or bursty-write workloads see no difference -- do not let a
+    //     benchmark that never overlaps a writer with polling readers report the
+    //     padding as free.
+    //   - Robust signature everywhere: the packed build issues ~3-4x more
+    //     L1-dcache load misses (perf stat). Wall-time impact scales with the
+    //     machine's coherence-domain fragmentation:
+    //       . single shared L3 (72-core ARM server): no measurable difference;
+    //       . desktop, 2 CCDs (under a VM): counters only, wall time in noise;
+    //       . 2-socket x86 server: ~15% writer-throughput gain, few readers;
+    //       . 128-core x86 server, 16 CCX-level L3 domains: 1.4-1.7x writer
+    //         throughput at 8-64 readers, and 3-5x LOWER run-to-run variance
+    //         (packed, the push cost depends on which reader last stole the
+    //         line; padded, the spinlock never leaves the writer's L1).
+    //     On that machine, pinned inside one NUMA node (16 cores, 2 CCXs --
+    //     cheap probes), the crossover of the rule above is directly visible
+    //     in one sweep: PACKED wins 1.4-1.6x at 1-2 readers (the lock-acquire
+    //     RFO carries `size_` along free), parity near 4, PADDED wins ~1.4x
+    //     from 8 readers up (writer CPU ~480 vs ~680 ns/push). Unpinned
+    //     (expensive cross-node probes) only the 1-reader point stays packed-
+    //     favored -- the pricier the probe, the earlier separation pays.
+    //   - Padding cannot help the first-order cost, which is TRUE sharing:
+    //     `size_` itself is what readers poll, so every push must invalidate
+    //     every reader's copy regardless of layout. On a fast interconnect this
+    //     base cost dominates and the false-sharing multiplier is free anyway.
+    //   - Cost of the padding itself: object size grows (here 56 -> 192 bytes),
+    //     negligible unless a very large number of deque instances are held.
+    CDQ_HOT_ALIGN std::atomic<T**> directory_ {};   // Atomic pointer to current array of block pointers
+    size_t directory_capacity_ {};                  // Current capacity (in blocks) of directory_
+    std::vector<T**> retired_directories_ {};       // Old directories preserved for wait-free reader safety
+    CDQ_HOT_ALIGN std::atomic<size_t> size_ {};     // Global element count; isolated from the write path (above)
+    CDQ_HOT_ALIGN mutable SpinLock spinlock_;       // Serializes all write operations; own line (above)
 }; // class ConcurrentAppendDeque
+
+#undef CDQ_HOT_ALIGN
 
 #endif // INCLUDED_CONCURRENT_DEQUE_H

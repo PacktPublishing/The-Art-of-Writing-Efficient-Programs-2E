@@ -97,6 +97,13 @@ TEST(ConcurrentAppendDequeTest, MultiThreadedWriters) {
     EXPECT_EQ(4000u, deque.size());
 }
 
+// One writer appends 0..9999 while four wait-free readers race it. This is the
+// canonical use of the reader protocol: read size() (acquire) first, then index
+// only strictly below the value it returned. Because push_back publishes an
+// element with a release store of size_, any index < the observed size names a
+// fully constructed, visible element -- so `deque[idx]` here never reads a torn
+// or unpublished value. `start` is a spin gate that lines the threads up so the
+// reads and writes actually overlap.
 TEST(ConcurrentAppendDequeTest, MultiThreadedReadersWriters) {
     ConcurrentAppendDeque<int, 1024> deque;
     std::atomic<bool> start{false};
@@ -112,6 +119,8 @@ TEST(ConcurrentAppendDequeTest, MultiThreadedReadersWriters) {
         readers.emplace_back([&]() {
             while (!start) {}
             for (int j = 0; j < 100000; ++j) {
+                // size() is the acquire load; idx = s - 1 is guaranteed < size(),
+                // so the element it names is already published by the writer.
                 size_t s = deque.size();
                 if (s > 0) {
                     size_t idx = s - 1;
@@ -171,11 +180,22 @@ TEST(ConcurrentAppendDequeTest, TSAN_StaleDirectory) {
     }
 }
 
+// A multi-word object whose fields satisfy the invariant b == a + 1 (and
+// c == a + 2, d == a + 3) once fully constructed. It exists so the reader below
+// can detect a *partially visible* construction: if the release/acquire pairing
+// were wrong, a reader could observe the element's slot published (via size_)
+// while some of its member stores had not yet propagated, and b == a + 1 would
+// fail. A single scalar int could not expose that class of bug.
 struct ComplexObject {
     int a, b, c, d;
     ComplexObject(int v = 0) : a(v), b(v+1), c(v+2), d(v+3) {}
 };
 
+// Verifies whole-object visibility, not just that size_ is synchronized: the
+// writer emplaces ComplexObjects; each reader loads size() (acquire) and reads
+// the last published object's a and b, asserting b == a + 1. The acquire on
+// size() must make every member store of that object visible, or the invariant
+// would tear. Passing under TSan/ASan is the real assertion here.
 TEST(ConcurrentAppendDequeTest, TSAN_MemoryOrdering) {
     ConcurrentAppendDeque<ComplexObject, 64> deque;
     std::atomic<bool> start{false};
