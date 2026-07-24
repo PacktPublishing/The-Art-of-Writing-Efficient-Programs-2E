@@ -29,7 +29,11 @@
 #include <string>
 #include <barrier>
 
-// Custom Hash that guarantees specific collisions to force bucket splits
+// Custom identity hash. Several tests need to control EXACTLY which bucket a key
+// lands in (bucket = hash(key) & (table_size-1)), which requires a hash whose low
+// bits are the key's low bits. std::hash<int> happens to be identity in libstdc++
+// and libc++, but relying on that is implementation-defined; this functor makes
+// the assumption explicit and portable for the tests that depend on it.
 struct CollisionHash {
     size_t operator()(int key) const {
         return static_cast<size_t>(key);
@@ -192,18 +196,24 @@ TEST(ConcurrentHashSetTest, ConcurrentReadersWriters) {
     for (int i = 0; i < N; ++i) EXPECT_TRUE(set.contains(i));
 }
 
-// Test cooperative split contention
+// Stresses the cooperative lazy split: many threads simultaneously touch the
+// freshly-created UNINITIALIZED buckets, so they race inside split_bucket() and
+// exactly one publishing CAS per bucket must win while the losers' subchains are
+// abandoned harmlessly. Relies on the identity of std::hash<int>: the keys are
+// constructed so their low 3 bits select buckets 4..7 once the table is size 8.
 TEST(ConcurrentHashSetTest, SplitContention) {
     // Initial size 4
     ConcurrentResizableHashSet<int> set(4);
-    
+
     // Insert 8 elements to approach resize threshold (4 * 2 = 8).
     for (int i = 0; i < 8; ++i) {
         set.insert(100 + i);
     }
-    
-    // Insert 1 element to trigger resize. Table expands to 8.
-    // Buckets 4,5,6,7 become SIZE_MAX.
+
+    // Insert 1 more element: arena occupancy now exceeds ts*2, so this insert
+    // doubles the table to 8. Buckets 4..7 are published UNINITIALIZED (their
+    // encoded value UNINITIALIZED, distinct from a real index) and will be split
+    // lazily by whichever thread below touches them first.
     set.insert(200);
     
     std::vector<std::thread> threads;
@@ -242,10 +252,15 @@ TEST(ConcurrentHashSetTest, SplitContention) {
     }
 }
 
-// Test Tombstone Erase functionality
+// Exercises tombstone erase end-to-end: single-threaded correctness (erase makes
+// contains() return false; a second erase of the same key returns false; erase
+// does not disturb other keys; a key can be re-inserted after erase), then a
+// concurrent phase where each thread erases its own disjoint key range so the
+// MARK_BIT CAS and the erase/contains interleavings are stressed without two
+// threads ever contending for the same key. AllowDelete=true compiles erase().
 TEST(ConcurrentHashSetTest, TombstoneErase) {
     ConcurrentResizableHashSet<int, true> set(4);
-    
+
     // Basic erase
     EXPECT_TRUE(set.insert(10));
     EXPECT_TRUE(set.insert(20));
@@ -292,9 +307,15 @@ TEST(ConcurrentHashSetTest, TombstoneErase) {
     }
 }
 
+// Meant to be run under ThreadSanitizer: it validates that concurrent
+// cooperative splits are DATA-RACE free (many threads racing inside
+// split_bucket() on the same UNINITIALIZED buckets, one CAS winner, losers'
+// subchains abandoned). No deletes here (AllowDelete=false), so it exercises the
+// split/publish paths only. The final EXPECT_EQ also checks that every attempted
+// key is present -- membership must be exact even though the boolean returns are
+// best-effort under resize.
 TEST(ConcurrentHashSetTest, CooperativeSplitTSAN) {
-    // Tests that aborted subchains and tombstones are handled safely
-    ConcurrentResizableHashSet<int, false, CollisionHash> set(4); 
+    ConcurrentResizableHashSet<int, false, CollisionHash> set(4);
     
     // Pre-populate to trigger exactly one resize (N=4 -> N=8)
     for (int i = 0; i < 9; ++i) {
@@ -382,11 +403,22 @@ TEST(ConcurrentHashSetTest, EraseStressTSAN) {
     }
 }
 
+// Targets the lost-update-on-resize race that insert()'s post-CAS geometry
+// recheck exists to close. Run 10000 times to make the narrow window likely.
+//
+// The race: key 4 hashes to bucket 0 at size 4 (4 & 3 == 0) but to bucket 4 at
+// size 8 (4 & 7 == 4). t1 inserts 4 (publishing it into bucket 0 under size 4)
+// exactly while t2 doubles the table to 8. If t2's split of the new bucket 4
+// snapshots bucket 0's chain in the instant BEFORE t1's node is linked, the copy
+// pass misses key 4 -- and without the recheck, t1 (having observed the old size)
+// would never re-publish it into bucket 4, stranding key 4 in a bucket no reader
+// consults at size 8. The recheck detects the size change (correct_j 4 != j 0)
+// and re-inserts, so contains(4) must hold afterwards.
 TEST(ConcurrentHashSetTest, LostUpdateOnResize) {
     for (int rep = 0; rep < 10000; ++rep) {
         ConcurrentResizableHashSet<int> set(4);
         set.insert(0); // initialize bucket 0
-        
+
         std::atomic<bool> start{false};
         std::atomic<bool> thread1_done{false};
 
@@ -399,9 +431,10 @@ TEST(ConcurrentHashSetTest, LostUpdateOnResize) {
 
         std::thread t2([&]() {
             while (!start) {}
-            // Force resize to 8
+            // Force resize to 8: keys 16,32,... all hash to bucket 0, so nine of
+            // them push arena occupancy past the doubling threshold.
             for (int i = 1; i <= 9; ++i) {
-                set.insert(i * 16); 
+                set.insert(i * 16);
             }
         });
 
@@ -417,6 +450,11 @@ TEST(ConcurrentHashSetTest, LostUpdateOnResize) {
     }
 }
 
+// Degenerate hash: every key maps to bucket 0. This funnels all inserts through
+// a single bucket head, maximizing compare_exchange contention -- precisely the
+// condition under which the old "allocate a fresh node on every CAS retry" bug
+// leaked a node per failed attempt. It makes the leak-detection test below
+// sensitive by construction.
 struct ConstantHash {
     size_t operator()(int) const { return 0; }
 };

@@ -169,9 +169,10 @@ public:
              * large population of UNINITIALIZED buckets whose lazy splits
              * have not happened yet. Those splits are then performed INSIDE
              * the timed region, cooperatively, BY THE READERS -- and every
-             * split allocates through the global data_alloc_lock_. The
-             * "wait-free" lookup benchmark degenerates into a spinlock
-             * convoy (wall time grows with threads while CPU stays flat).
+             * split allocates through the arena deque's spinlock_. The
+             * nominally lock-free lookup benchmark degenerates into a
+             * spinlock convoy (wall time grows with threads while CPU
+             * stays flat).
              * Constructing at 2*kPrefill means the table never doubles:
              * every bucket is born EMPTY, no split ever exists, no stale
              * copies inflate the chains. The unordered_set baseline gets the
