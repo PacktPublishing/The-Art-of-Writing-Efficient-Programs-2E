@@ -209,7 +209,9 @@ struct alignas(64) ThreadStats {
     size_t lat_count = 0;   // latencies recorded (post-warmup, non-negative)
     size_t lat_neg   = 0;   // latencies discarded as negative (TSC migration)
     double lat_sum   = 0.0; // for running mean
-    double lat_sumsq = 0.0; // for running variance via Welford-equivalent
+    double lat_sumsq = 0.0; // running sum of squares; print_row() derives the
+                            // variance from it one-pass as E[x^2]-E[x]^2
+                            // (naive, not Welford — see guard in print_row())
     Tick   lat_min   = std::numeric_limits<Tick>::max();
     Tick   lat_max   = 0;
     std::array<uint64_t, kHistBuckets> hist{};  // log-linear latency histogram
@@ -348,6 +350,11 @@ inline void print_row(const char* name, const RunResult& r, double cyc_per_ns) {
     const double mean_c = n > 0 ? r.lat_sum / n : 0.0;
     double var_c = 0.0;
     if (n > 1) {
+        // One-pass variance from the running sum/sum-of-squares accumulators
+        // (E[x^2]-E[x]^2 form). This is fast but prone to catastrophic
+        // cancellation when the mean is large relative to the spread, which
+        // can drive the numerator slightly negative; the `num > 0` guard
+        // clamps that to 0 rather than feeding sqrt() a negative value.
         const double num = r.lat_sumsq - n * mean_c * mean_c;
         var_c = (num > 0.0) ? num / (n - 1.0) : 0.0;
     }

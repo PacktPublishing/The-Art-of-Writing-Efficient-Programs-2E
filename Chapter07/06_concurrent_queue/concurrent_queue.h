@@ -81,8 +81,14 @@ template <typename Key, typename Value = void,
           size_t NTRY = 8,              // Number of attempts to acquire a slot before giving up
           size_t ALIGN = 0>             // Additional alignment; 64 to align each queue slot on a cache line
 class RingAtomicMapQueueMPMC {
+  // The key doubles as the slot's atomic state word (empty/full, and the target
+  // of the key->busy->key validation), so it must be lock-free -- a mutex-backed
+  // "atomic" key would defeat the whole per-slot lock-free coordination.
   static_assert(std::atomic<Key>::is_always_lock_free);
-  // Queue slot type (with and without value).
+  // Queue slot type (with and without value). alignas is the max of: the caller-
+  // requested ALIGN (e.g. 64 to give each slot its own cache line and kill false
+  // sharing between adjacent slots), the key atomic's own requirement, and the
+  // value's -- so the slot is always at least as aligned as any member needs.
   template <typename K, typename V> struct alignas(std::max({ALIGN, alignof(std::atomic<K>), alignof(V)})) queue_slot_t {
     std::atomic<K> key;
     std::atomic<int> busy;      // In-flight commit: set under lock before unlock, cleared after key store/clear
@@ -117,7 +123,7 @@ class RingAtomicMapQueueMPMC {
     // Values in particular exist only between push's placement-new and the
     // matching explicit destructor call in pop() or ~RingAtomicMapQueueMPMC().
     ::memset(static_cast<void*>(queue_), 0, capacity_ * sizeof(slot_t));
-  }
+  } // RingAtomicMapQueueMPMC()
 
   // Destructor drains the queue if there are any elements remaining.
   ~RingAtomicMapQueueMPMC() {
@@ -134,8 +140,8 @@ class RingAtomicMapQueueMPMC {
         slot.value.~Value();
       }
       slot.key.store(Key{}, std::memory_order_relaxed);
-    }
-  }
+    } // drain [head_.i, tail_.i)
+  } // ~RingAtomicMapQueueMPMC()
 
   // Push an element (key-value pair) onto the queue.
   // This method copies or moves the value by the corresponding constructor.

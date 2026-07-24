@@ -21,10 +21,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-// Custom throughput benchmark for RingAtomicMapQueueMPMC.
+// Custom throughput benchmark for RingAtomicMapQueueMPMC (mbm = the base
+// hand-rolled MicroBenchMark; gmbm is the Google Benchmark twin that reports
+// the same numbers).
 // Mirrors queue_gmbm.C but replaces Google Benchmark with a hand-rolled
 // harness so we have tight control over start/stop synchronization and can
 // later swap the throughput metric for per-op latency.
+//
+// Methodology differences from gmbm worth knowing: each thread count runs for
+// a FIXED wall-clock duration (default 5 s) rather than Google Benchmark's
+// auto-tuned iteration count, and there is no warm-up phase -- steady-state
+// throughput dominates a multi-second run. Roles are the same static parity
+// split as gmbm (odd index produces, even consumes). No benchmark::
+// DoNotOptimize is needed: every push/pop result is consumed by an `if` and
+// its count flushed to stats[t], so the work is observably live.
 
 #include "concurrent_queue.h"
 
@@ -189,6 +199,10 @@ void print_header() {
 
 void print_row(const char* name, const RunResult& r) {
     const size_t items = r.total_p + r.total_c;
+    // ns/op is aggregate, not per-thread latency: total core-time
+    // (elapsed * n_threads) divided by total successful ops. It answers "how
+    // much CPU does one enqueue-or-dequeue cost across the machine", so it
+    // rises with contention even though each thread's own loop stays busy.
     const double ns_per_op =
         r.elapsed_s * 1e9 * static_cast<double>(r.n_threads) /
         static_cast<double>(items ? items : 1);

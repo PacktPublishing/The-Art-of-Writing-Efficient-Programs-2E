@@ -21,9 +21,32 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-// Custom LATENCY benchmark for RingAtomicMapQueueMPMC.
-// Key=Value=uint64_t so timestamps live inside queue slots (no ring race).
-// See DN_queue/queue_lmbm.C for the self-balancing harness design.
+// Custom LATENCY benchmark for RingAtomicMapQueueMPMC (the "l" in lmbm =
+// latency). Measures push->pop HANDOFF latency under MPMC contention: the
+// time from just before a producer's push to just after a consumer's pop of
+// that same element. Contrast the sibling benchmarks: gmbm/mbm report
+// throughput, and ppmbm reports uncontended 1P-1C round-trip latency.
+//
+// Key=Value=uint64_t so the producer's timestamp travels *inside the slot* as
+// the value: the consumer recovers it from the popped element and subtracts.
+// "No ring race" -- there is no separate side array indexed by ring position
+// that a wrapped-around producer/consumer could stomp; the stamp is bound to
+// the element, so latency is attributed correctly no matter which threads
+// produced and consumed it.
+//
+// Self-balancing roles (see run_once below): every thread prefers to consume
+// and only produces after an empty miss. This holds the queue near-empty, so
+// the measured interval is dominated by cross-core handoff, not by time the
+// item spends buffered in a full ring. Roles are DYNAMIC here, unlike the
+// static odd/even producer/consumer split in gmbm/mbm.
+//
+// Measured interval = rdtsc_start() taken by the producer immediately before
+// push, to rdtsc_end() taken by the consumer immediately after pop. Samples
+// that come out negative (TSC skew from a thread migrating across cores
+// despite affinity) are counted in lat_neg and discarded; the first
+// warmup_skip valid samples per thread are also dropped.
+//
+// See DN_queue/queue_lmbm.C for the original self-balancing harness design.
 
 #include "concurrent_queue.h"
 #include "latbench_common.h"

@@ -36,6 +36,11 @@
 // plus the receiver's trivial pop-push. Blocking on cpu_pause() keeps the
 // cost close to the hardware minimum without kernel involvement.
 //
+// The queues are key-only (Value=void), so the rdtsc timestamp is carried as
+// the KEY itself and pop() returns it directly -- no value slot, and 0 is a
+// safe "empty" sentinel because a real timestamp is never 0. (lmbm instead
+// carries the stamp as the value; here the key-only slot is all we need.)
+//
 // Capacity is deliberately small (64): we want handoff latency, not
 // buffering. Large capacity lets the sender run ahead and measures queue
 // throughput instead.
@@ -51,8 +56,10 @@
 //
 // Warm-up: `warmup_skip` samples discarded to skip initial page faults,
 // branch-predictor training, and rdtsc first-read skew. Items/s counts
-// every successful round trip including warm-up, so it reflects total
-// work done, not just measured samples.
+// two per round trip: each round trip is two queue traversals (push+pop
+// through q1, push+pop through q2), so the queues do twice as many item
+// transfers as there are round trips. Warm-up traversals are included,
+// so items/s reflects total work done, not just measured samples.
 
 #include "concurrent_queue.h"
 #include "latbench_common.h"
@@ -135,6 +142,8 @@ RunResult run_once(size_t capacity_hint, size_t n_messages, size_t warmup_skip,
             }
             ++s.c;
         }
+        // p + c = 2*n_messages by design: a round trip is two queue
+        // traversals, and items/s counts traversals (see file header).
         s.p = n_messages;
     });
 

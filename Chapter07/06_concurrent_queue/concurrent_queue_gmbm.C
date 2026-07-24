@@ -21,6 +21,30 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
+// Google Benchmark THROUGHPUT benchmark for RingAtomicMapQueueMPMC (the "g"
+// in gmbm = Google Benchmark; concurrent_queue_mbm.C is the hand-rolled twin
+// of this file, and produces the same measurement without the framework).
+//
+// What it measures: aggregate enqueue+dequeue throughput (items/s) of the
+// key-only int* queue under MPMC contention. Google Benchmark runs BM_MP_MC
+// simultaneously on every thread of the ThreadRange, auto-tunes the iteration
+// count until the run is long enough to be stable, and reports items/s from
+// SetItemsProcessed. This is a throughput probe, NOT latency -- for per-op
+// latency see concurrent_queue_lmbm.C (contended push->pop handoff) and
+// concurrent_queue_ppmbm.C (1-producer/1-consumer round trip).
+//
+// Thread roles are STATIC and split by index parity: odd threads push, even
+// threads pop (state.thread_index() & 1). ThreadRange yields powers of two up
+// to the hardware thread count, so producers and consumers are balanced at
+// every (even) thread count in the sweep. (This is the opposite of the lmbm
+// harness, whose roles are dynamic and self-balancing.)
+//
+// The registered sweep fixes capacity at 65536 slots and varies only the
+// per-slot ALIGN template parameter (0/16/64/128) to study how slot
+// cache-line alignment trades off against contention; NTRY is pinned at 8.
+// The commented-out registrations (a8/a32/a256 and the BALANCE variant) are
+// kept ready for ad-hoc runs.
+
 #include "concurrent_queue.h"
 
 #include <bit>
@@ -65,6 +89,9 @@
 #define CHECK_EQ(a, b) if ((a) != (b)) std::abort();
 #endif
 
+// Smoke test: push two pointers and pop them back, asserting FIFO order and
+// pointer identity. Not part of the measured loop -- called only via the
+// `if (0) test(q)` guard below so it stays compiled but off by default.
 template <typename Q> void test(Q* q) {
     int i = 1, j = 2;
     int* p;
@@ -133,6 +160,10 @@ void BM_MP_MC(benchmark::State& state) {
                     if (q->push(&v[0])) ++p; else ++pmiss;
                 }
             }
+            // Force the popped pointer to count as "used". The queue mutation
+            // in pop() is itself observable, but ptr is otherwise only tested
+            // for null, so without this the compiler could discard the loaded
+            // pointer value and shrink the measured work.
             benchmark::DoNotOptimize(ptr);
         }
     }
@@ -173,10 +204,17 @@ static size_t get_thread_count() {
 }
 static const size_t thread_count = get_thread_count();
 
+// Shared registration args for every variant:
+//   UseRealTime()  -- report wall-clock, not summed CPU time. A multithreaded
+//                     benchmark accrues CPU time on every thread, so CPU-time
+//                     reporting would divide throughput by the thread count.
+//   ThreadRange(2, thread_count) -- run at 2,4,8,... threads up to hardware.
+//   Range(1<<16, 1<<16) -- capacity is a single fixed point (65536 slots);
+//                     RangeMultiplier is therefore vestigial here (one value).
 #define ARGS \
   ->UseRealTime() \
   ->ThreadRange(2, thread_count) \
-  ->RangeMultiplier(2)->Range(1UL << 16, 1UL << 16)  
+  ->RangeMultiplier(2)->Range(1UL << 16, 1UL << 16)
 
 BENCHMARK(BM_MP_MC_void_8) ARGS;          // Best on M3 Pro, competitive on Grace/AMD
 //BENCHMARK(BM_MP_MC_void_8_balanced) ARGS;
