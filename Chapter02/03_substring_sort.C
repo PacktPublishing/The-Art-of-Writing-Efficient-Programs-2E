@@ -1,4 +1,4 @@
-// 01 optimized to omit unnecessary bount check in compare()
+// 01 optimized to omit unnecessary bound check in compare()
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>

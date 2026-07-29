@@ -1,5 +1,5 @@
 // Comparison function for substring sort 02_substring_sort.C.
-// 01 optimized to omit unnecessary bount check in compare()
+// 01 optimized to omit unnecessary bound check in compare()
 bool compare(const char* s1, const char* s2) {
     if (s1 == s2) return false;
     for (unsigned int i = 0; ; ++i) {

@@ -13,7 +13,7 @@
         minstd_rand rgen;
         using rand_t = minstd_rand::result_type;
         if(0) for (char* p = s.get(), *end = p + L; p != end; p += sizeof(rand_t)) {    // Option A
-            const rand_t x = rgen();
+            const rand_t x = 'a' + (rgen() % ('z' - 'a' + 1));
             ::memcpy(p, &x, sizeof(x));
         }
         else if(0) for (unsigned int i = 0; i < L; ++i) {       // Option B
@@ -25,7 +25,7 @@
                 s[rgen() % (L - 1)] = 'a' + (rgen() % ('z' - 'a' + 1));
             }
         }
-        s[L-1] = 0;
+        s[L-1] = '\0';
         for (unsigned int i = 0; i < N; ++i) {
             vs[i] = &s[rgen() % (L - 1)];
         }
