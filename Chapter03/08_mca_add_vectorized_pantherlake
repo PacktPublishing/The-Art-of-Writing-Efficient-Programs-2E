@@ -1,0 +1,258 @@
+Iterations:        10000
+Instructions:      150000
+Total Cycles:      30014
+Total uOps:        180000
+
+Dispatch Width:    6
+uOps Per Cycle:    6.00
+IPC:               5.00
+Block RThroughput: 3.0
+
+
+No resource or data dependency bottlenecks discovered.
+
+
+Instruction Info:
+[1]: #uOps
+[2]: Latency
+[3]: RThroughput
+[4]: MayLoad
+[5]: MayStore
+[6]: HasSideEffects (U)
+
+[1]    [2]    [3]    [4]    [5]    [6]    Instructions:
+ 1      8     0.33    *                   vmovdqu	(%rdx,%rdi,8), %ymm4
+ 1      8     0.33    *                   vmovdqu	32(%rdx,%rdi,8), %ymm5
+ 1      8     0.33    *                   vmovdqu	64(%rdx,%rdi,8), %ymm6
+ 1      8     0.33    *                   vmovdqu	96(%rdx,%rdi,8), %ymm7
+ 2      9     0.33    *                   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+ 1      1     0.33                        vpaddq	%ymm0, %ymm4, %ymm0
+ 2      9     0.33    *                   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+ 1      1     0.33                        vpaddq	%ymm1, %ymm4, %ymm1
+ 2      9     0.33    *                   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+ 1      1     0.33                        vpaddq	%ymm2, %ymm4, %ymm2
+ 2      9     0.33    *                   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+ 1      1     0.33                        vpaddq	%ymm3, %ymm4, %ymm3
+ 0      1     0.00                        addq	$16, %rdi
+ 1      1     0.20                        cmpq	%rdi, %rsi
+ 1      1     0.50                        jne	.LBB0_6
+
+
+Resources:
+[0]   - ADLPPort00
+[1]   - ADLPPort01
+[2]   - ADLPPort02
+[3]   - ADLPPort03
+[4]   - ADLPPort04
+[5]   - ADLPPort05
+[6]   - ADLPPort06
+[7]   - ADLPPort07
+[8]   - ADLPPort08
+[9]   - ADLPPort09
+[10]  - ADLPPort10
+[11]  - ADLPPort11
+[12]  - ADLPPortInvalid
+
+
+Resource pressure per iteration:
+[0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   
+2.67   2.67   2.67   2.67    -     2.67   1.00    -      -      -     1.00   2.67    -     
+
+Resource pressure by instruction:
+[0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
+ -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     vmovdqu	(%rdx,%rdi,8), %ymm4
+ -      -     0.33   0.17    -      -      -      -      -      -      -     0.50    -     vmovdqu	32(%rdx,%rdi,8), %ymm5
+ -      -     0.17   0.33    -      -      -      -      -      -      -     0.50    -     vmovdqu	64(%rdx,%rdi,8), %ymm6
+ -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     vmovdqu	96(%rdx,%rdi,8), %ymm7
+0.17   0.33   0.33   0.33    -     0.50    -      -      -      -      -     0.33    -     vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -     vpaddq	%ymm0, %ymm4, %ymm0
+0.17   0.67   0.33   0.33    -     0.17    -      -      -      -      -     0.33    -     vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+0.33   0.50    -      -      -     0.17    -      -      -      -      -      -      -     vpaddq	%ymm1, %ymm4, %ymm1
+0.50   0.17   0.17   0.67    -     0.33    -      -      -      -      -     0.17    -     vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+0.67   0.17    -      -      -     0.17    -      -      -      -      -      -      -     vpaddq	%ymm2, %ymm4, %ymm2
+0.33   0.33   0.67   0.17    -     0.33    -      -      -      -      -     0.17    -     vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+0.17   0.17    -      -      -     0.67    -      -      -      -      -      -      -     vpaddq	%ymm3, %ymm4, %ymm3
+ -      -      -      -      -      -      -      -      -      -      -      -      -     addq	$16, %rdi
+ -      -      -      -      -      -      -      -      -      -     1.00    -      -     cmpq	%rdi, %rsi
+ -      -      -      -      -      -     1.00    -      -      -      -      -      -     jne	.LBB0_6
+
+
+Timeline view:
+                    0123456789          0123456789    
+Index     0123456789          0123456789          0123
+
+[0,0]     DeeeeeeeeER    .    .    .    .    .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[0,1]     DeeeeeeeeER    .    .    .    .    .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[0,2]     DeeeeeeeeER    .    .    .    .    .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[0,3]     D=eeeeeeeeER   .    .    .    .    .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[0,4]     D==eeeeeeeeeER .    .    .    .    .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[0,5]     .D==========eER.    .    .    .    .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[0,6]     .D=eeeeeeeeeE-R.    .    .    .    .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[0,7]     .D==========eER.    .    .    .    .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[0,8]     .D=eeeeeeeeeE-R.    .    .    .    .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[0,9]     . D=========eER.    .    .    .    .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[0,10]    . D=eeeeeeeeeER.    .    .    .    .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[0,11]    . D==========eER    .    .    .    .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[0,12]    . DeE----------R    .    .    .    .    .  .   addq	$16, %rdi
+[0,13]    . D=eE---------R    .    .    .    .    .  .   cmpq	%rdi, %rsi
+[0,14]    . D==eE--------R    .    .    .    .    .  .   jne	.LBB0_6
+[1,0]     .  DeeeeeeeeE--R    .    .    .    .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[1,1]     .  DeeeeeeeeE--R    .    .    .    .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[1,2]     .  D=eeeeeeeeE-R    .    .    .    .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[1,3]     .  D=eeeeeeeeE-R    .    .    .    .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[1,4]     .  D==eeeeeeeeeER   .    .    .    .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[1,5]     .   D==========eER  .    .    .    .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[1,6]     .   D=eeeeeeeeeE-R  .    .    .    .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[1,7]     .   D==========eER  .    .    .    .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[1,8]     .   D==eeeeeeeeeER  .    .    .    .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[1,9]     .    D==========eER .    .    .    .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[1,10]    .    D=eeeeeeeeeE-R .    .    .    .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[1,11]    .    D==========eER .    .    .    .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[1,12]    .    DeE----------R .    .    .    .    .  .   addq	$16, %rdi
+[1,13]    .    D=eE---------R .    .    .    .    .  .   cmpq	%rdi, %rsi
+[1,14]    .    D==eE--------R .    .    .    .    .  .   jne	.LBB0_6
+[2,0]     .    .DeeeeeeeeE--R .    .    .    .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[2,1]     .    .D=eeeeeeeeE-R .    .    .    .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[2,2]     .    .D=eeeeeeeeE-R .    .    .    .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[2,3]     .    .D=eeeeeeeeE-R .    .    .    .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[2,4]     .    .D==eeeeeeeeeER.    .    .    .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[2,5]     .    . D==========eER    .    .    .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[2,6]     .    . D==eeeeeeeeeER    .    .    .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[2,7]     .    . D===========eER   .    .    .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[2,8]     .    . D==eeeeeeeeeE-R   .    .    .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[2,9]     .    .  D==========eER   .    .    .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[2,10]    .    .  D=eeeeeeeeeE-R   .    .    .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[2,11]    .    .  D==========eER   .    .    .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[2,12]    .    .  DeE----------R   .    .    .    .  .   addq	$16, %rdi
+[2,13]    .    .  D=eE---------R   .    .    .    .  .   cmpq	%rdi, %rsi
+[2,14]    .    .  D==eE--------R   .    .    .    .  .   jne	.LBB0_6
+[3,0]     .    .   D=eeeeeeeeE-R   .    .    .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[3,1]     .    .   D=eeeeeeeeE-R   .    .    .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[3,2]     .    .   D=eeeeeeeeE-R   .    .    .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[3,3]     .    .   D==eeeeeeeeER   .    .    .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[3,4]     .    .   D===eeeeeeeeeER .    .    .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[3,5]     .    .    D===========eER.    .    .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[3,6]     .    .    D==eeeeeeeeeE-R.    .    .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[3,7]     .    .    D===========eER.    .    .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[3,8]     .    .    D===eeeeeeeeeER.    .    .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[3,9]     .    .    .D===========eER    .    .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[3,10]    .    .    .D==eeeeeeeeeE-R    .    .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[3,11]    .    .    .D===========eER    .    .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[3,12]    .    .    .DeE-----------R    .    .    .  .   addq	$16, %rdi
+[3,13]    .    .    .D=eE----------R    .    .    .  .   cmpq	%rdi, %rsi
+[3,14]    .    .    .D==eE---------R    .    .    .  .   jne	.LBB0_6
+[4,0]     .    .    . DeeeeeeeeE---R    .    .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[4,1]     .    .    . D=eeeeeeeeE--R    .    .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[4,2]     .    .    . D==eeeeeeeeE-R    .    .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[4,3]     .    .    . D==eeeeeeeeE-R    .    .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[4,4]     .    .    . D==eeeeeeeeeER    .    .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[4,5]     .    .    .  D==========eER   .    .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[4,6]     .    .    .  D==eeeeeeeeeER   .    .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[4,7]     .    .    .  D===========eER  .    .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[4,8]     .    .    .  D===eeeeeeeeeER  .    .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[4,9]     .    .    .   D===========eER .    .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[4,10]    .    .    .   D==eeeeeeeeeE-R .    .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[4,11]    .    .    .   D===========eER .    .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[4,12]    .    .    .   DeE-----------R .    .    .  .   addq	$16, %rdi
+[4,13]    .    .    .   D=eE----------R .    .    .  .   cmpq	%rdi, %rsi
+[4,14]    .    .    .   D==eE---------R .    .    .  .   jne	.LBB0_6
+[5,0]     .    .    .    DeeeeeeeeE---R .    .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[5,1]     .    .    .    DeeeeeeeeE---R .    .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[5,2]     .    .    .    D=eeeeeeeeE--R .    .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[5,3]     .    .    .    D==eeeeeeeeE-R .    .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[5,4]     .    .    .    D==eeeeeeeeeER .    .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[5,5]     .    .    .    .D==========eER.    .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[5,6]     .    .    .    .D=eeeeeeeeeE-R.    .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[5,7]     .    .    .    .D==========eER.    .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[5,8]     .    .    .    .D===eeeeeeeeeER    .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[5,9]     .    .    .    . D===========eER   .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[5,10]    .    .    .    . D==eeeeeeeeeE-R   .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[5,11]    .    .    .    . D===========eER   .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[5,12]    .    .    .    . DeE-----------R   .    .  .   addq	$16, %rdi
+[5,13]    .    .    .    . D=eE----------R   .    .  .   cmpq	%rdi, %rsi
+[5,14]    .    .    .    . D==eE---------R   .    .  .   jne	.LBB0_6
+[6,0]     .    .    .    .  DeeeeeeeeE---R   .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[6,1]     .    .    .    .  DeeeeeeeeE---R   .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[6,2]     .    .    .    .  DeeeeeeeeE---R   .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[6,3]     .    .    .    .  D=eeeeeeeeE--R   .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[6,4]     .    .    .    .  D==eeeeeeeeeER   .    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[6,5]     .    .    .    .   D==========eER  .    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[6,6]     .    .    .    .   D=eeeeeeeeeE-R  .    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[6,7]     .    .    .    .   D==========eER  .    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[6,8]     .    .    .    .   D=eeeeeeeeeE-R  .    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[6,9]     .    .    .    .    D=========eER  .    .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[6,10]    .    .    .    .    D=eeeeeeeeeER  .    .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[6,11]    .    .    .    .    D==========eER .    .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[6,12]    .    .    .    .    DeE----------R .    .  .   addq	$16, %rdi
+[6,13]    .    .    .    .    D=eE---------R .    .  .   cmpq	%rdi, %rsi
+[6,14]    .    .    .    .    D==eE--------R .    .  .   jne	.LBB0_6
+[7,0]     .    .    .    .    .DeeeeeeeeE--R .    .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[7,1]     .    .    .    .    .DeeeeeeeeE--R .    .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[7,2]     .    .    .    .    .D=eeeeeeeeE-R .    .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[7,3]     .    .    .    .    .D=eeeeeeeeE-R .    .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[7,4]     .    .    .    .    .D==eeeeeeeeeER.    .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[7,5]     .    .    .    .    . D==========eER    .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[7,6]     .    .    .    .    . D=eeeeeeeeeE-R    .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[7,7]     .    .    .    .    . D==========eER    .  .   vpaddq	%ymm1, %ymm4, %ymm1
+[7,8]     .    .    .    .    . D==eeeeeeeeeER    .  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[7,9]     .    .    .    .    .  D==========eER   .  .   vpaddq	%ymm2, %ymm4, %ymm2
+[7,10]    .    .    .    .    .  D=eeeeeeeeeE-R   .  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[7,11]    .    .    .    .    .  D==========eER   .  .   vpaddq	%ymm3, %ymm4, %ymm3
+[7,12]    .    .    .    .    .  DeE----------R   .  .   addq	$16, %rdi
+[7,13]    .    .    .    .    .  D=eE---------R   .  .   cmpq	%rdi, %rsi
+[7,14]    .    .    .    .    .  D==eE--------R   .  .   jne	.LBB0_6
+[8,0]     .    .    .    .    .   DeeeeeeeeE--R   .  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[8,1]     .    .    .    .    .   D=eeeeeeeeE-R   .  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[8,2]     .    .    .    .    .   D=eeeeeeeeE-R   .  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[8,3]     .    .    .    .    .   D=eeeeeeeeE-R   .  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[8,4]     .    .    .    .    .   D==eeeeeeeeeER  .  .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[8,5]     .    .    .    .    .    D==========eER .  .   vpaddq	%ymm0, %ymm4, %ymm0
+[8,6]     .    .    .    .    .    D==eeeeeeeeeER .  .   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[8,7]     .    .    .    .    .    D===========eER.  .   vpaddq	%ymm1, %ymm4, %ymm1
+[8,8]     .    .    .    .    .    D==eeeeeeeeeE-R.  .   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[8,9]     .    .    .    .    .    .D==========eER.  .   vpaddq	%ymm2, %ymm4, %ymm2
+[8,10]    .    .    .    .    .    .D=eeeeeeeeeE-R.  .   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[8,11]    .    .    .    .    .    .D==========eER.  .   vpaddq	%ymm3, %ymm4, %ymm3
+[8,12]    .    .    .    .    .    .DeE----------R.  .   addq	$16, %rdi
+[8,13]    .    .    .    .    .    .D=eE---------R.  .   cmpq	%rdi, %rsi
+[8,14]    .    .    .    .    .    .D==eE--------R.  .   jne	.LBB0_6
+[9,0]     .    .    .    .    .    . D=eeeeeeeeE-R.  .   vmovdqu	(%rdx,%rdi,8), %ymm4
+[9,1]     .    .    .    .    .    . D=eeeeeeeeE-R.  .   vmovdqu	32(%rdx,%rdi,8), %ymm5
+[9,2]     .    .    .    .    .    . D=eeeeeeeeE-R.  .   vmovdqu	64(%rdx,%rdi,8), %ymm6
+[9,3]     .    .    .    .    .    . D==eeeeeeeeER.  .   vmovdqu	96(%rdx,%rdi,8), %ymm7
+[9,4]     .    .    .    .    .    . D===eeeeeeeeeER .   vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+[9,5]     .    .    .    .    .    .  D===========eER.   vpaddq	%ymm0, %ymm4, %ymm0
+[9,6]     .    .    .    .    .    .  D==eeeeeeeeeE-R.   vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+[9,7]     .    .    .    .    .    .  D===========eER.   vpaddq	%ymm1, %ymm4, %ymm1
+[9,8]     .    .    .    .    .    .  D===eeeeeeeeeER.   vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+[9,9]     .    .    .    .    .    .   D===========eER   vpaddq	%ymm2, %ymm4, %ymm2
+[9,10]    .    .    .    .    .    .   D==eeeeeeeeeE-R   vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+[9,11]    .    .    .    .    .    .   D===========eER   vpaddq	%ymm3, %ymm4, %ymm3
+[9,12]    .    .    .    .    .    .   DeE-----------R   addq	$16, %rdi
+[9,13]    .    .    .    .    .    .   D=eE----------R   cmpq	%rdi, %rsi
+[9,14]    .    .    .    .    .    .   D==eE---------R   jne	.LBB0_6
+
+
+Average Wait times (based on the timeline view):
+[0]: Executions
+[1]: Average time spent waiting in a scheduler's queue
+[2]: Average time spent waiting in a scheduler's queue while ready
+[3]: Average time elapsed from WB until retire stage
+
+      [0]    [1]    [2]    [3]
+0.     10    1.2    0.3    1.9       vmovdqu	(%rdx,%rdi,8), %ymm4
+1.     10    1.5    0.6    1.6       vmovdqu	32(%rdx,%rdi,8), %ymm5
+2.     10    1.9    1.0    1.2       vmovdqu	64(%rdx,%rdi,8), %ymm6
+3.     10    2.4    1.5    0.8       vmovdqu	96(%rdx,%rdi,8), %ymm7
+4.     10    3.2    0.0    0.0       vpaddq	(%rcx,%rdi,8), %ymm4, %ymm4
+5.     10    11.2   0.0    0.0       vpaddq	%ymm0, %ymm4, %ymm0
+6.     10    2.5    0.0    0.7       vpaddq	32(%rcx,%rdi,8), %ymm5, %ymm4
+7.     10    11.5   0.0    0.0       vpaddq	%ymm1, %ymm4, %ymm1
+8.     10    3.2    0.3    0.4       vpaddq	64(%rcx,%rdi,8), %ymm6, %ymm4
+9.     10    11.2   0.0    0.0       vpaddq	%ymm2, %ymm4, %ymm2
+10.    10    2.4    0.0    0.8       vpaddq	96(%rcx,%rdi,8), %ymm7, %ymm4
+11.    10    11.4   0.0    0.0       vpaddq	%ymm3, %ymm4, %ymm3
+12.    10    1.0    1.0    10.4      addq	$16, %rdi
+13.    10    2.0    0.0    9.4       cmpq	%rdi, %rsi
+14.    10    3.0    0.0    8.4       jne	.LBB0_6
+       10    4.6    0.3    2.4       <total>
