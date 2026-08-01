@@ -16,6 +16,19 @@
 #define REPEAT(x) REPEAT32(x)
 
 template <class Word>
+void BM_read1(benchmark::State& state) {
+    volatile Word* const p = new Word;
+    ::memset((void*)p, 0xab, sizeof(Word));
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(*p);
+    }
+    delete p;
+    state.SetBytesProcessed(sizeof(Word)*state.iterations());
+    state.SetItemsProcessed(state.iterations());
+}
+
+template <class Word>
 void BM_read(benchmark::State& state) {
     volatile Word* const p = new Word;
     ::memset((void*)p, 0xab, sizeof(Word));
@@ -28,7 +41,7 @@ void BM_read(benchmark::State& state) {
     state.SetItemsProcessed(32*state.iterations());
 }
 
-
+BENCHMARK_TEMPLATE1(BM_read1, unsigned int);
 BENCHMARK_TEMPLATE1(BM_read, unsigned int);
 BENCHMARK_TEMPLATE1(BM_read, unsigned long);
 BENCHMARK_TEMPLATE1(BM_read, __m128i);
