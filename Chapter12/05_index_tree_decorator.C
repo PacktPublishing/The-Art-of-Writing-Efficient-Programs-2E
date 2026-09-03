@@ -20,20 +20,6 @@ class index_tree {
         data_.push_back(t);
         idx_.insert(&data_.back());
     }
-    class const_iterator {
-        idx_iter_t it_;
-        public:
-        const_iterator(idx_iter_t it) : it_(it) {}
-        const_iterator& operator++() { ++it_; return *this; }
-        const T& operator*() const { return *(*it_); }
-        friend bool operator!=(const const_iterator& a, const const_iterator& b) { return a.it_ != b.it_; }
-    };
-    const_iterator cbegin() const {
-        return idx_.cbegin();
-    }
-    const_iterator cend() const {
-        return idx_.cend();
-    }
     template <typename F> bool find(F f) const {
         for (const T& x : data_) {
             if (f(x)) return true;
