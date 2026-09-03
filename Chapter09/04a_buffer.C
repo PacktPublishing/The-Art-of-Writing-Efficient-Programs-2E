@@ -13,7 +13,7 @@ std::vector<size_t> vr {
         std::vector<size_t> v;
         v.reserve(nr);
         srand(1);
-        for (size_t i = 0; i < nr; ++i) v[i] = rand();
+        for (size_t i = 0; i < nr; ++i) v.push_back(rand());
         return v;
     }(nr)
 };
