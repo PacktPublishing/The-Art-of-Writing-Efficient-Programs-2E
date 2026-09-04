@@ -28,7 +28,7 @@ generator<int> coro()
   int n1, n2;
   co_yield (n1 = 1);
   co_yield (n2 = 1);
-  while (true) {
+  for (int i = 0; i != 10; ++i) {
     const int n = n1 + n2;
     n1 = n2;
     n2 = n;
@@ -42,7 +42,7 @@ int main()
   auto h = coro().h_;
   std::cout << "Main() started coro()" << std::endl;
   auto &promise = h.promise();
-  for (int i = 0; i < 10; ++i) {
+  while (!h.done()) {
     std::cout << "Main() counter: " << promise.value_ << std::endl;
     h();
   }

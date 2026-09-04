@@ -17,7 +17,7 @@ template <typename T> struct generator {
       return generator{handle_type::from_promise(*this)};
     }
     std::suspend_never initial_suspend() { return {}; }
-    std::suspend_never final_suspend() noexcept { return {}; }
+    std::suspend_always final_suspend() noexcept { return {}; }
     void unhandled_exception() {}
     std::suspend_always yield_value(T value) {
       value_ = value;
@@ -34,7 +34,7 @@ ATTR generator<int> coro()
   int n1, n2;
   co_yield (n1 = 1);
   co_yield (n2 = 1);
-  for (int i = 0;; ++i) {
+  while (true) {
     const int n = n1 + n2;
     n1 = n2;
     n2 = n;
