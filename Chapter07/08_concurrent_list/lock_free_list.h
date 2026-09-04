@@ -78,8 +78,11 @@ public:
         // shared pointer (which requires them on the pointee); for the other
         // pointer types they are 8 bytes of dead weight per node, accepted so
         // that Node does not have to know which pointer it is instantiated
-        // with. DelRef() returns true on the 1 -> 0 transition; its acq_rel
-        // order makes all prior writes to the node visible to the deleter.
+        // with. The count starts at 0: a freshly new'ed node is owned by no
+        // one until the first shared_ptr_type adopts it (0 -> 1); every owner
+        // thereafter counts itself via AddRef. DelRef() returns true on the
+        // 1 -> 0 transition; its acq_rel order makes all prior writes to the
+        // node visible to the deleter.
         std::atomic<long> ref_count{0};
         void AddRef() { ref_count.fetch_add(1, std::memory_order_relaxed); }
         bool DelRef() { return ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1; }

@@ -40,7 +40,10 @@
 #include "lock_free_shared_ptr/atomic_shared_ptr.hpp"
 #include "lock_free_list.h"
 
-// Wrappers for Benchmarks
+// Wrappers for the benchmark fixtures (same trick as in lock_free_list_test.C):
+// BENCHMARK_TEMPLATE_DEFINE_F takes a *type* argument, but LockFreeList is
+// parameterized by a template-template argument, so each wrapper carries its
+// pointer template as a member alias (Wrapper::template ptr_type).
 struct StdAtomicWrapper {
     template <typename U> using ptr_type = StdAtomicSharedPtrAdapter<U>;
 };
@@ -51,6 +54,8 @@ struct ParlayWrapper {
     template <typename U> using ptr_type = parlay::atomic_shared_ptr<U>;
 };
 
+// Uniform node factory (see lock_free_list_test.C): hides the three different
+// shared_ptr_type construction idioms behind one compile-time-dispatched callable.
 template <typename Wrapper>
 struct Factory {
     template <typename Node>
@@ -72,6 +77,10 @@ public:
     using List = LockFreeList<int, Wrapper::template ptr_type>;
     using Node = typename List::Node;
     
+    // The list under test is shared by all benchmark threads, but Google
+    // Benchmark constructs a *separate fixture instance per thread* -- hence
+    // static members: allocated by thread 0 in SetUp(), freed in TearDown(),
+    // with the state-loop barrier ordering both against the other threads.
     static List* list;
     static Factory<Wrapper> factory;
 
@@ -163,8 +172,10 @@ public:
 template <typename Wrapper>
 std::vector<typename DispersedListFixture<Wrapper>::Iterator> DispersedListFixture<Wrapper>::start_positions;
 
+// Deterministic per-thread seed: every run and every repetition of a
+// benchmark sees the same operation sequence, so runs are comparable.
 #define SETUP_RNG \
-    std::mt19937 rng(state.thread_index() + 42 + state.iterations()); \
+    std::mt19937 rng(state.thread_index() + 42); \
     std::uniform_int_distribution<int> dist(0, 99)
 
 BENCHMARK_TEMPLATE_DEFINE_F(ListFixture, ReadHeavy_StdAtomic, StdAtomicWrapper)(benchmark::State& state) {
@@ -490,6 +501,12 @@ BENCHMARK_TEMPLATE_DEFINE_F(DispersedListFixture, ReadDispersed_HazardPtr, Parla
 
 static const int num_cpu = sysconf(_SC_NPROCESSORS_CONF);
 
+// ThreadRange(1, num_cpu) doubles the thread count at each step up to the
+// core count. UseRealTime() reports wall-clock time per iteration instead of
+// accumulated per-thread CPU time; CPU time would flatter implementations
+// that block instead of spinning (the intr spinlock naps in nanosleep, the
+// libstdc++ std::atomic<shared_ptr> waits on a mutex), while wall time is the
+// throughput actually observed.
 #define REGISTER_BMS(name) \
     BENCHMARK_REGISTER_F(ListFixture, ReadHeavy_##name)->ThreadRange(1, num_cpu)->UseRealTime(); \
     BENCHMARK_REGISTER_F(ListFixture, WriteHeavy_##name)->ThreadRange(1, num_cpu)->UseRealTime(); \

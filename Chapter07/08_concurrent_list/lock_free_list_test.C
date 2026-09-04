@@ -46,7 +46,10 @@ struct Tracked {
 };
 std::atomic<int> Tracked::alive{0};
 
-// Wrappers for TYPED_TEST_SUITE
+// Wrappers for TYPED_TEST_SUITE: gtest typed tests take a list of *types*,
+// but LockFreeList is parameterized by a template-template argument, so each
+// wrapper smuggles its pointer template through as a member alias
+// (Wrapper::template ptr_type) that the fixture unpacks.
 struct StdAtomicWrapper {
     template <typename U> using ptr_type = StdAtomicSharedPtrAdapter<U>;
 };
@@ -57,6 +60,11 @@ struct ParlayWrapper {
     template <typename U> using ptr_type = parlay::atomic_shared_ptr<U>;
 };
 
+// Uniform node factory: the three pointer families construct their
+// shared_ptr_type differently (std adapter: from make_shared; intrusive:
+// adopting a raw new, since the count lives in the node; parlay: from
+// parlay::make_shared). Tests funnel all node creation through this one
+// callable, which dispatches on the concrete shared_ptr_type at compile time.
 template <typename Wrapper>
 struct Factory {
     template <typename Node>

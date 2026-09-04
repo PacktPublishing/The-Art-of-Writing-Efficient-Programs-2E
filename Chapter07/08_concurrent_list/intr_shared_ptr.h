@@ -66,6 +66,10 @@ public:
     public:
         shared_ptr_type() : p_(nullptr) {}
         shared_ptr_type(std::nullptr_t) : p_(nullptr) {}
+        // Adopt a raw pointer (0 -> 1 for a freshly new'ed object). Unlike
+        // std::shared_ptr, adoption and sharing are the same operation here:
+        // the count lives inside the object, so every new owner just AddRefs
+        // and there is no separate control block to allocate or find.
         explicit shared_ptr_type(U* p) : p_(p) {
             if (get_unmarked_ptr()) get_unmarked_ptr()->AddRef();
         }
@@ -85,6 +89,13 @@ public:
             }
         }
         
+        // AddRef the new pointee *before* DelRef-ing the old one: `this` and `x`
+        // can be distinct shared_ptr_type objects holding the same pointee --
+        // often as marked and unmarked variants of one pointer, which the
+        // mark-as-identity design (get_unmarked(), set_mark() return copies)
+        // makes routine. Releasing first could drop the last reference and
+        // delete the very object we are about to AddRef; the self-assignment
+        // check catches only `a = a`, not that aliasing.
         shared_ptr_type& operator=(const shared_ptr_type& x) {
             if (this == &x) return *this;
             U* new_ptr = reinterpret_cast<U*>(reinterpret_cast<uintptr_t>(x.p_) & ~1ULL);
@@ -98,6 +109,10 @@ public:
             return *this;
         }
 
+        // Move assignment needs no AddRef-first dance: x's reference is being
+        // transferred, so even when *this and x share the pointee the count
+        // includes x's reference until p_ is overwritten and stays >= 1
+        // through the DelRef below.
         shared_ptr_type& operator=(shared_ptr_type&& x) noexcept {
             if (this == &x) return *this;
             U* old_ptr = get_unmarked_ptr();
@@ -127,6 +142,9 @@ public:
         // so a marked and unmarked pointer to the same object are *not* equal.
         bool is_marked() const { return (reinterpret_cast<uintptr_t>(p_) & 1ULL) != 0; }
 
+        // Two overloads: the lvalue one must copy (an AddRef/DelRef round
+        // trip); the rvalue one clears the bit in place, which is what makes
+        // the ubiquitous `next.load(...).get_unmarked()` refcount-churn-free.
         shared_ptr_type get_unmarked() const & {
             shared_ptr_type res(*this);
             res.p_ = reinterpret_cast<U*>(reinterpret_cast<uintptr_t>(res.p_) & ~1ULL);
@@ -174,6 +192,11 @@ public:
     intr_shared_ptr(const intr_shared_ptr&) = delete;
     intr_shared_ptr& operator=(const intr_shared_ptr&) = delete;
 
+    // ~3: the mark bit may legitimately be set (a marked pointer is still an
+    // owning pointer and must be released); the lock bit cannot be -- running
+    // the destructor means no operation is in flight -- so stripping it is
+    // defensive. Relaxed suffices for the same reason: whatever established
+    // that exclusivity already ordered all prior accesses to aptr_.
     ~intr_shared_ptr() {
         uintptr_t val = aptr_.load(std::memory_order_relaxed);
         U* ptr = reinterpret_cast<U*>(val & ~3ULL);
@@ -233,6 +256,9 @@ public:
         uintptr_t new_val = reinterpret_cast<uintptr_t>(desired.get_raw());
         
         uintptr_t val = lock<Intent::Write>();
+        // Full-identity comparison: pointer AND mark bit must match. The ~2
+        // is defensive only -- lock() returns the pre-lock value, whose lock
+        // bit is already clear.
         if ((val & ~2ULL) == expected_val) {
             // Success
             U* new_unmarked = desired.get_unmarked_ptr();
@@ -246,7 +272,10 @@ public:
             // 2. If `success` lacks release semantics (e.g. relaxed), the spinlock would be released 
             //    without synchronizing memory, allowing races on the pointee object.
             std::memory_order store_order = (success == std::memory_order_seq_cst) ? std::memory_order_seq_cst : std::memory_order_release;
-            aptr_.store(new_val, store_order); // Store writes the new val without lock bit
+            // Like store(): new_val has the lock bit clear, so this single
+            // store is both the CAS write and the spinlock release -- which is
+            // why there is no unlock() call on the success path.
+            aptr_.store(new_val, store_order);
             
             if (old_unmarked && old_unmarked->DelRef()) {
                 delete old_unmarked;
@@ -265,8 +294,14 @@ public:
     }
 
 private:
+    // The entire atomic state in one word: U* | mark (bit 0) | lock (bit 1).
+    // mutable because load() is const from the caller's viewpoint yet must
+    // take the embedded spinlock, which mutates the word.
     mutable std::atomic<uintptr_t> aptr_{0};
 
+    // Selects the backoff policy in lock(): readers (load) burn CPU longer
+    // before sleeping, writers (store/CAS) get out of the way almost
+    // immediately -- see the comments in lock().
     enum class Intent { Read, Write };
 
     // Acquire the embedded spinlock (bit 1). Spins until it observes the lock bit
@@ -296,6 +331,9 @@ private:
 #endif
                     }
                 } else {
+                    // Writers get a bare recheck loop (no pause): a short,
+                    // cheap last chance to see the lock freed before paying
+                    // for the nanosleep syscall below.
                     for (int i = 0; i < 8; ++i) {
                         val = aptr_.load(std::memory_order_relaxed);
                         if ((val & 2ULL) == 0) break;
@@ -310,18 +348,35 @@ private:
                             ++spin_count;
                         } else {
                             spin_count = 0;
-                            struct timespec ts = { 0, 1000 }; // 1us
+                            struct timespec ts = { 0, 1000 }; // nominal 1us; see the note on nanosleep rounding below
                             nanosleep(&ts, nullptr);
                         }
                     } else {
                         // Writers sleep immediately to let the lock-holder finish and avoid CAS thrashing
                         if (spin_count < 8) {
+                            // Nominal 1ns, but the kernel rounds nanosleep up
+                            // to its timer granularity plus slack (~50us by
+                            // default on Linux): the request really means "the
+                            // shortest sleep available" -- the point is to
+                            // deschedule, not the stated duration.
                             struct timespec ts = { 0, 1 };
                             nanosleep(&ts, nullptr);
                             ++spin_count;
                         } else {
+                            // Escalation tier: insurance for a lock holder
+                            // descheduled mid-critical-section. Measured
+                            // 2026-07-23 (9950X, 32 logical CPUs, WriteHeavy/
+                            // Graveyard/MassiveHeadInsert at 32 and 64
+                            // threads): this branch fires only ~5 times per
+                            // multi-second contended run -- the 8 short
+                            // sleeps above absorb virtually all waits -- and
+                            // durations from 10us to 10ms are throughput-
+                            // neutral (all within the run-to-run noise). 1ms
+                            // is chosen to bound the latency a stale sleeper
+                            // adds while still giving a preempted holder time
+                            // to run.
                             spin_count = 0;
-                            struct timespec ts = { 0, 10000001 };
+                            struct timespec ts = { 0, 1000000 }; // 1ms
                             nanosleep(&ts, nullptr);
                         }
                     }
