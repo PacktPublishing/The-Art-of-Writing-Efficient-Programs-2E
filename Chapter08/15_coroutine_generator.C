@@ -38,7 +38,7 @@ ATTR generator<int> coro()
     const int n = n1 + n2;
     n1 = n2;
     n2 = n;
-    co_yield i;
+    co_yield n;
   }
 }
 
