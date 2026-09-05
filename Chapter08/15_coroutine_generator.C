@@ -29,13 +29,13 @@ template <typename T> struct generator {
   std::coroutine_handle<promise_type> h_;
 };
 
-ATTR generator<int> coro()
+ATTR generator<unsigned long> coro()
 {
-  int n1, n2;
+  unsigned long n1, n2;
   co_yield (n1 = 1);
   co_yield (n2 = 1);
   while (true) {
-    const int n = n1 + n2;
+    const unsigned long n = n1 + n2;
     n1 = n2;
     n2 = n;
     co_yield n;
@@ -54,13 +54,13 @@ void BM_coro(benchmark::State& state) {
 }
 
 class Generator {
-  int n1_ = 0;
-  int n2_ = 0;
+  unsigned long n1_ = 0;
+  unsigned long n2_ = 0;
   public:
-  ATTR int operator()() { 
+  ATTR unsigned long operator()() { 
     if (n1_ == 0) return (n1_ = 1);
     if (n2_ == 0) return (n2_ = 1);
-    const int n = n1_ + n2_;
+    const unsigned long n = n1_ + n2_;
     n1_ = n2_;
     n2_ = n;
     return n;
